@@ -139,18 +139,6 @@ ptrace_getregs(VALUE self)
                  thread_status);
     }
 
-    x86_thread_state_t thread_debug_state;
-    int debug_state_count = x86_DEBUG_STATE_COUNT; /* only x86 supported */
-    kern_return_t debug_thread_status = thread_get_status(pthread_self(),
-                                                    x86_DEBUG_STATE,
-                                                    &thread_debug_state,
-                                                    &debug_state_count);
-    if ( debug_thread_status != 0 )
-    {
-        rb_raise(rb_ePTraceError, "thread_get_state failed with error code: %d",
-                 debug_thread_status);
-    }
-
     ret = rb_struct_new(rb_sPTraceRegStruct,
                         ULONG2NUM(thread_state.uts.ts64.__rax), 
                         ULONG2NUM(thread_state.uts.ts64.__rbx),
@@ -485,6 +473,58 @@ ptrace_getsiginfo(VALUE self)
     return Qnil;
 }
 #endif
+
+#if defined(__APPLE__)
+static VALUE
+ptrace_setregs(VALUE self, VALUE data)
+{
+    x86_thread_state_t current_thread_state;
+    VALUE ret = Qnil;
+    int state_count = x86_THREAD_STATE_COUNT; /* only x86 supported */
+    kern_return_t thread_status = thread_get_status(pthread_self(),
+                                                    x86_THREAD_STATE,
+                                                    &current_thread_state,
+                                                    &state_count);
+    if ( thread_status != 0 )
+    {
+        rb_raise(rb_ePTraceError, "thread_get_state failed with error code: %d",
+                 thread_status);
+    }
+    
+#define SET(reg) {VALUE v = rb_struct_getmember(data, rb_intern(#reg)); \
+        current_thread_state.uts.ts64.__##reg = NUM2ULONG(v);}
+    SET(rax);
+    SET(rbx);
+    SET(rcx);
+    SET(rdi);
+    SET(rsi);
+    SET(rbp);
+    SET(rsp);
+    SET(r8);
+    SET(r9);
+    SET(r10);
+    SET(r11);
+    SET(r12);
+    SET(r13);
+    SET(r14);
+    SET(r15);
+    SET(rip);
+    SET(rflags);
+    SET(cs);
+    SET(fs);
+    SET(gs);
+    kern_return_t set_thread_status = thread_set_state(pthread_self(),
+                                                       x86_DEBUG_STATE,
+                                                       &current_thread_state,
+                                                       x86_DEBUG_STATE_COUNT);
+    if ( set_thread_status != 0 )
+    {
+        rb_raise(rb_ePTraceError, "thread_set_state failed with error code: %d",
+                 set_thread_status);
+    }
+    return Qnil;
+}
+#else
 #ifdef PT_SETREGS
 static VALUE
 ptrace_setregs(VALUE self, VALUE data)
@@ -517,14 +557,15 @@ ptrace_setregs(VALUE self, VALUE data)
     CALL_PTRACE(ret, PT_SETREGS, pid, 0, data_ptr);
     return Qnil;
 }
-#else
+#else  /* PT_SETREGS */
 static VALUE
 ptrace_setregs(VALUE self, VALUE data)
 {
     UNSUPPORTED();
     return Qnil;
 }
-#endif
+#endif  /* PT_SETREGS */
+#endif  /* __APPLE__ */
 static VALUE
 ptrace_setfpregs(VALUE self, VALUE data)
 {
@@ -766,6 +807,7 @@ Init_ptrace(void)
 		       "xes", "xfs", "xgs", "orig_eax", "eip", "xcs",
 		       "eflags", "esp", "xss", 0);
 #endif
+    
     rb_sPTraceFPRegStruct =
       rb_struct_define("FPRegStruct",
 		       "cwd", "swd", "twd", "fop", "fip", "fcs", "foo",
