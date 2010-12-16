@@ -13,7 +13,11 @@
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <sys/ptrace.h>
+#if defined(__APPLE__)
+typedef int ptrace_request;
+#else
 typedef enum __ptrace_request ptrace_request;
+#endif
 //#define HAVE_PTRACE_SYSEMU 1
 
 #define CALL_PTRACE(ret, request, pid, addr, data) do { \
@@ -117,6 +121,8 @@ ptrace_pokeuser(VALUE self, VALUE addr, VALUE data)
     return ptrace_poke(self, PT_WRITE_U, addr, data);
 }
 
+//#if defined(__APPLE__)
+#ifdef PT_GETREGS
 static VALUE
 ptrace_getregs(VALUE self)
 {
@@ -137,6 +143,14 @@ ptrace_getregs(VALUE self)
 		      ULONG2NUM(urs.esp), ULONG2NUM(urs.xss));
     return v;
 }
+#else
+static VALUE
+ptrace_getregs(VALUE self)
+{
+    UNSUPPORTED();
+    return Qnil;
+}
+#endif
 
 static VALUE
 ptrace_getfpregs(VALUE self)
@@ -165,9 +179,13 @@ signo_symbol_to_int(VALUE sym)
     SI_SIGNO(SIGPIPE);
     SI_SIGNO(SIGALRM);
     SI_SIGNO(SIGTERM);
+#ifdef SIGSTKFLT
     SI_SIGNO(SIGSTKFLT);
+#endif
     SI_SIGNO(SIGCHLD);
+#ifdef SIGCLD
     SI_SIGNO(SIGCLD);
+#endif
     SI_SIGNO(SIGCONT);
     SI_SIGNO(SIGSTOP);
     SI_SIGNO(SIGTSTP);
@@ -179,11 +197,19 @@ signo_symbol_to_int(VALUE sym)
     SI_SIGNO(SIGVTALRM);
     SI_SIGNO(SIGPROF);
     SI_SIGNO(SIGWINCH);
+#ifdef SIGPOLL
     SI_SIGNO(SIGPOLL);
+#endif
     SI_SIGNO(SIGIO);
+#ifdef SIGPWR
     SI_SIGNO(SIGPWR);
+#endif
+#ifdef SIGSYS
     SI_SIGNO(SIGSYS);
+#endif
+#ifdef SIGUNUSED
     SI_SIGNO(SIGUNUSED);
+#endif
 #undef SI_SIGNO
 
     return -1; /* not found */
@@ -211,7 +237,9 @@ si_signo_symbol(int signo)
 	SI_SIGNO(SIGPIPE);
 	SI_SIGNO(SIGALRM);
 	SI_SIGNO(SIGTERM);
+#ifdef SIGSTKFLT
 	SI_SIGNO(SIGSTKFLT);
+#endif
 	SI_SIGNO(SIGCHLD);
 	/* SI_SIGNO(SIGCLD); dup */
 	SI_SIGNO(SIGCONT);
@@ -225,10 +253,16 @@ si_signo_symbol(int signo)
 	SI_SIGNO(SIGVTALRM);
 	SI_SIGNO(SIGPROF);
 	SI_SIGNO(SIGWINCH);
+#ifdef SIGPOLL
 	SI_SIGNO(SIGPOLL);
+#endif
 	/* SI_SIGNO(SIGIO); dup */
+#ifdef SIGPWR
 	SI_SIGNO(SIGPWR);
+#endif
+#ifdef SYGSYS
 	SI_SIGNO(SIGSYS);
+#endif
 	/* SI_SIGNO(SIGUNUSED); dup */
     }
 
@@ -245,13 +279,19 @@ si_code_symbol(int signo, int code)
 
     switch (code) {
 	SI_CODE(SI_USER);
+#ifdef SI_KERNEL
 	SI_CODE(SI_KERNEL);
+#endif
 	SI_CODE(SI_QUEUE);
 	SI_CODE(SI_TIMER);
 	SI_CODE(SI_MESGQ);
 	SI_CODE(SI_ASYNCIO);
+#ifdef SI_SIGIO
 	SI_CODE(SI_SIGIO);
+#endif
+#ifdef SI_TKILL
 	SI_CODE(SI_TKILL);
+#endif
     }
 
     switch (signo) {
@@ -308,6 +348,7 @@ si_code_symbol(int signo, int code)
 	    SI_CODE(CLD_CONTINUED);
 	}
 	break;
+#ifdef SIGPOLL
       case SIGPOLL:
 	switch (code) {
 	    SI_CODE(POLL_IN);
@@ -318,6 +359,7 @@ si_code_symbol(int signo, int code)
 	    SI_CODE(POLL_HUP);
 	}
 	break;
+#endif
     }
 
 #undef SI_CODE
@@ -325,6 +367,7 @@ si_code_symbol(int signo, int code)
     return ID2SYM(rb_intern("UNKNOWN_CODE"));
 }
 
+#ifdef PT_GETSIGINFO
 static VALUE
 ptrace_getsiginfo(VALUE self)
 {
@@ -379,7 +422,15 @@ ptrace_getsiginfo(VALUE self)
 
     return v;
 }
-
+#else
+static VALUE
+ptrace_getsiginfo(VALUE self)
+{
+    UNSUPPORTED();
+    return Qnil;
+}
+#endif
+#ifdef PT_SETREGS
 static VALUE
 ptrace_setregs(VALUE self, VALUE data)
 {
@@ -411,7 +462,14 @@ ptrace_setregs(VALUE self, VALUE data)
     CALL_PTRACE(ret, PT_SETREGS, pid, 0, data_ptr);
     return Qnil;
 }
-
+#else
+static VALUE
+ptrace_setregs(VALUE self, VALUE data)
+{
+    UNSUPPORTED();
+    return Qnil;
+}
+#endif
 static VALUE
 ptrace_setfpregs(VALUE self, VALUE data)
 {
@@ -450,6 +508,7 @@ ptrace_cont(int argc, VALUE *argv, VALUE self)
     return ptrace_continue(self, PT_CONTINUE, data);
 }
 
+#ifdef PT_SYSCALL
 static VALUE
 ptrace_syscall(int argc, VALUE *argv, VALUE self)
 {
@@ -459,6 +518,14 @@ ptrace_syscall(int argc, VALUE *argv, VALUE self)
     }
     return ptrace_continue(self, PT_SYSCALL, data);
 }
+#else
+static VALUE
+ptrace_syscall(int argc, VALUE *argv, VALUE self)
+{
+    UNSUPPORTED();
+    return Qnil;
+}
+#endif
 
 static VALUE
 ptrace_singlestep(int argc, VALUE *argv, VALUE self)
