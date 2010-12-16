@@ -13,6 +13,7 @@
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <sys/ptrace.h>
+#include <mach/thread_status.h>
 #if defined(__APPLE__)
 typedef int ptrace_request;
 #else
@@ -121,7 +122,60 @@ ptrace_pokeuser(VALUE self, VALUE addr, VALUE data)
     return ptrace_poke(self, PT_WRITE_U, addr, data);
 }
 
-//#if defined(__APPLE__)
+#if defined(__APPLE__)
+static VALUE
+ptrace_getregs(VALUE self)
+{
+    x86_thread_state_t thread_state;
+    VALUE ret = Qnil;
+    int state_count = x86_THREAD_STATE_COUNT; /* only x86 supported */
+    kern_return_t thread_status = thread_get_status(pthread_self(),
+                                                    x86_THREAD_STATE,
+                                                    &thread_state,
+                                                    &state_count);
+    if ( thread_status != 0 )
+    {
+        rb_raise(rb_ePTraceError, "thread_get_state failed with error code: %d",
+                 thread_status);
+    }
+
+    x86_thread_state_t thread_debug_state;
+    int debug_state_count = x86_DEBUG_STATE_COUNT; /* only x86 supported */
+    kern_return_t debug_thread_status = thread_get_status(pthread_self(),
+                                                    x86_DEBUG_STATE,
+                                                    &thread_debug_state,
+                                                    &debug_state_count);
+    if ( debug_thread_status != 0 )
+    {
+        rb_raise(rb_ePTraceError, "thread_get_state failed with error code: %d",
+                 debug_thread_status);
+    }
+
+    ret = rb_struct_new(rb_sPTraceRegStruct,
+                        ULONG2NUM(thread_state.uts.ts64.__rax), 
+                        ULONG2NUM(thread_state.uts.ts64.__rbx),
+                        ULONG2NUM(thread_state.uts.ts64.__rcx),
+                        ULONG2NUM(thread_state.uts.ts64.__rdi),
+                        ULONG2NUM(thread_state.uts.ts64.__rsi),
+                        ULONG2NUM(thread_state.uts.ts64.__rbp),
+                        ULONG2NUM(thread_state.uts.ts64.__rsp),
+                        ULONG2NUM(thread_state.uts.ts64.__r8), 
+                        ULONG2NUM(thread_state.uts.ts64.__r9),
+                        ULONG2NUM(thread_state.uts.ts64.__r10),
+                        ULONG2NUM(thread_state.uts.ts64.__r11),
+                        ULONG2NUM(thread_state.uts.ts64.__r12),
+                        ULONG2NUM(thread_state.uts.ts64.__r13),
+                        ULONG2NUM(thread_state.uts.ts64.__r14),
+                        ULONG2NUM(thread_state.uts.ts64.__r15),
+                        ULONG2NUM(thread_state.uts.ts64.__rip),
+                        ULONG2NUM(thread_state.uts.ts64.__rflags),
+                        ULONG2NUM(thread_state.uts.ts64.__cs),
+                        ULONG2NUM(thread_state.uts.ts64.__fs),
+                        ULONG2NUM(thread_state.uts.ts64.__gs));
+                        
+    return ret;
+}
+#else
 #ifdef PT_GETREGS
 static VALUE
 ptrace_getregs(VALUE self)
@@ -150,7 +204,8 @@ ptrace_getregs(VALUE self)
     UNSUPPORTED();
     return Qnil;
 }
-#endif
+#endif  /* PT_GETREGS */
+#endif  /* __APPLE__ */
 
 static VALUE
 ptrace_getfpregs(VALUE self)
@@ -697,12 +752,20 @@ Init_ptrace(void)
     id_ptrace_pid = rb_intern("__ptrace_pid__");
     rb_ePTraceError = rb_define_class("PTraceError", rb_eStandardError);
 
+#if defined(__APPLE__)
+    rb_sPTraceRegStruct =
+        rb_struct_define("RegStruct",
+                         "rax", "rbx", "rcx", "rdi", "rsi", "rbp", "rsp", "r8",
+                         "r9", "r10", "r11", "r12", "r13", "r14", "r15", "rip",
+                         "rflags", "cs", "fs", "gs",
+                         0);
+#else  /* linux */
     rb_sPTraceRegStruct =
       rb_struct_define("RegStruct",
 		       "ebx", "ecx", "edx", "esi", "edi", "ebp", "eax", "xds",
 		       "xes", "xfs", "xgs", "orig_eax", "eip", "xcs",
 		       "eflags", "esp", "xss", 0);
-
+#endif
     rb_sPTraceFPRegStruct =
       rb_struct_define("FPRegStruct",
 		       "cwd", "swd", "twd", "fop", "fip", "fcs", "foo",
