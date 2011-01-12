@@ -1,7 +1,11 @@
 # start
 
-ptrace.o: Makefile $(srcdir)/ptrace.c
-
+ptrace.o: Makefile $(srcdir)/ptrace.c $(srcdir)/ptrace_linux.c $(srcdir)/ptrace_darwin.c
+$(srcdir)/ptrace_linux.o:
+	touch $@
+$(srcdir)/ptrace_darwin.o:
+	touch $@
+        
 run: ptrace.so
 	$(ruby) $(srcdir)/sample/minitrace.rb ls
 

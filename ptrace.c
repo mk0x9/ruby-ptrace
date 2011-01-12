@@ -14,12 +14,6 @@
 #include <sys/wait.h>
 #include <sys/ptrace.h>
 #include <mach/thread_status.h>
-#if defined(__APPLE__)
-typedef int ptrace_request;
-#else
-typedef enum __ptrace_request ptrace_request;
-#endif
-//#define HAVE_PTRACE_SYSEMU 1
 
 #define CALL_PTRACE(ret, request, pid, addr, data) do { \
 	ret = ptrace(request, pid, addr, data); \
@@ -29,12 +23,23 @@ typedef enum __ptrace_request ptrace_request;
     } while (0)
 
 #define UNSUPPORTED() \
-  rb_raise(rb_eRuntimeError, "unsupported method %s:%d", __FILE__, __LINE__)
+    rb_raise(rb_eRuntimeError, "unsupported method %s:%d", __FILE__, __LINE__)
+
+#define UNSUPPORTED_API(func_name, ...)             \
+static VALUE func_name(__VA_ARGS__) { UNSUPPORTED(); return Qnil;}
+
 
 static VALUE rb_ePTraceError;
 static VALUE rb_sPTraceRegStruct;
 static VALUE rb_sPTraceFPRegStruct;
 static ID id_ptrace_pid;
+
+#if defined(__APPLE__)
+#include "ptrace_darwin.c"
+#else
+#include "ptrace_linux.c"
+#endif
+
 
 static pid_t
 get_pid(VALUE self)
@@ -74,24 +79,6 @@ ptrace_peek(VALUE self, ptrace_request request, VALUE addr)
 }
 
 static VALUE
-ptrace_peektext(VALUE self, VALUE addr)
-{
-    return ptrace_peek(self, PT_READ_I, addr);
-}
-
-static VALUE
-ptrace_peekdata(VALUE self, VALUE addr)
-{
-    return ptrace_peek(self, PT_READ_D, addr);
-}
-
-static VALUE
-ptrace_peekuser(VALUE self, VALUE addr)
-{
-     return ptrace_peek(self, PT_READ_U, addr);
-}
-
-static VALUE
 ptrace_poke(VALUE self, ptrace_request request, VALUE addr, VALUE data)
 {
     pid_t pid = get_pid(self);
@@ -105,101 +92,11 @@ ptrace_poke(VALUE self, ptrace_request request, VALUE addr, VALUE data)
 }
 
 static VALUE
-ptrace_poketext(VALUE self, VALUE addr, VALUE data)
+ptrace_alloc(VALUE mod, pid_t pid)
 {
-    return ptrace_poke(self, PT_WRITE_I, addr, data);
-}
-
-static VALUE
-ptrace_pokedata(VALUE self, VALUE addr, VALUE data)
-{
-    return ptrace_poke(self, PT_WRITE_D, addr, data);
-}
-
-static VALUE
-ptrace_pokeuser(VALUE self, VALUE addr, VALUE data)
-{
-    return ptrace_poke(self, PT_WRITE_U, addr, data);
-}
-
-#if defined(__APPLE__)
-static VALUE
-ptrace_getregs(VALUE self)
-{
-    x86_thread_state_t thread_state;
-    VALUE ret = Qnil;
-    int state_count = x86_THREAD_STATE_COUNT; /* only x86 supported */
-    kern_return_t thread_status = thread_get_status(pthread_self(),
-                                                    x86_THREAD_STATE,
-                                                    &thread_state,
-                                                    &state_count);
-    if ( thread_status != 0 )
-    {
-        rb_raise(rb_ePTraceError, "thread_get_state failed with error code: %d",
-                 thread_status);
-    }
-
-    ret = rb_struct_new(rb_sPTraceRegStruct,
-                        ULONG2NUM(thread_state.uts.ts64.__rax), 
-                        ULONG2NUM(thread_state.uts.ts64.__rbx),
-                        ULONG2NUM(thread_state.uts.ts64.__rcx),
-                        ULONG2NUM(thread_state.uts.ts64.__rdi),
-                        ULONG2NUM(thread_state.uts.ts64.__rsi),
-                        ULONG2NUM(thread_state.uts.ts64.__rbp),
-                        ULONG2NUM(thread_state.uts.ts64.__rsp),
-                        ULONG2NUM(thread_state.uts.ts64.__r8), 
-                        ULONG2NUM(thread_state.uts.ts64.__r9),
-                        ULONG2NUM(thread_state.uts.ts64.__r10),
-                        ULONG2NUM(thread_state.uts.ts64.__r11),
-                        ULONG2NUM(thread_state.uts.ts64.__r12),
-                        ULONG2NUM(thread_state.uts.ts64.__r13),
-                        ULONG2NUM(thread_state.uts.ts64.__r14),
-                        ULONG2NUM(thread_state.uts.ts64.__r15),
-                        ULONG2NUM(thread_state.uts.ts64.__rip),
-                        ULONG2NUM(thread_state.uts.ts64.__rflags),
-                        ULONG2NUM(thread_state.uts.ts64.__cs),
-                        ULONG2NUM(thread_state.uts.ts64.__fs),
-                        ULONG2NUM(thread_state.uts.ts64.__gs));
-                        
-    return ret;
-}
-#else
-#ifdef PT_GETREGS
-static VALUE
-ptrace_getregs(VALUE self)
-{
-    struct user_regs_struct urs;
-    void *data_ptr = (void *)&urs;
-    pid_t pid = get_pid(self);
-    long ret;
-    VALUE v = Qnil;
-
-    CALL_PTRACE(ret, PT_GETREGS, pid, 0, data_ptr);
-
-    v = rb_struct_new(rb_sPTraceRegStruct,
-		      ULONG2NUM(urs.ebx), ULONG2NUM(urs.ecx), ULONG2NUM(urs.edx),
-		      ULONG2NUM(urs.esi), ULONG2NUM(urs.edi), ULONG2NUM(urs.ebp),
-		      ULONG2NUM(urs.eax), ULONG2NUM(urs.xds), ULONG2NUM(urs.xes),
-		      ULONG2NUM(urs.xfs), ULONG2NUM(urs.xgs), ULONG2NUM(urs.orig_eax),
-		      ULONG2NUM(urs.eip), ULONG2NUM(urs.xcs), ULONG2NUM(urs.eflags),
-		      ULONG2NUM(urs.esp), ULONG2NUM(urs.xss));
+    VALUE v = rb_obj_alloc(mod);
+    rb_ivar_set(v, id_ptrace_pid, LONG2NUM(pid));
     return v;
-}
-#else
-static VALUE
-ptrace_getregs(VALUE self)
-{
-    UNSUPPORTED();
-    return Qnil;
-}
-#endif  /* PT_GETREGS */
-#endif  /* __APPLE__ */
-
-static VALUE
-ptrace_getfpregs(VALUE self)
-{
-    UNSUPPORTED();
-    return Qnil;
 }
 
 static int
@@ -257,6 +154,91 @@ signo_symbol_to_int(VALUE sym)
 
     return -1; /* not found */
 }
+
+static VALUE
+ptrace_continue(VALUE self, ptrace_request request, VALUE data)
+{
+    pid_t pid = get_pid(self);
+    long ret;
+    long sig = 0;
+
+    if (FIXNUM_P(data)) {
+	sig = FIX2LONG(data);
+    }
+    else if (SYMBOL_P(data)) {
+	sig = signo_symbol_to_int(data);
+    }
+    else {
+	rb_raise(rb_eRuntimeError, "unknown data");
+    }
+
+    CALL_PTRACE(ret, request, pid, 0, (void *)sig);
+    return Qnil;
+}
+
+
+#ifdef PT_READ_I
+static VALUE
+ptrace_peektext(VALUE self, VALUE addr)
+{
+    return ptrace_peek(self, PT_READ_I, addr);
+}
+#else
+UNSUPPORTED_API(ptrace_peektext, VALUE self, VALUE addr)
+#endif
+
+#ifdef PT_READ_D
+static VALUE
+ptrace_peekdata(VALUE self, VALUE addr)
+{
+    return ptrace_peek(self, PT_READ_D, addr);
+}
+#else
+UNSUPPORTED_API(ptrace_peekdata, VALUE self, VALUE addr)
+#endif
+
+#ifdef PT_READ_U
+static VALUE
+ptrace_peekuser(VALUE self, VALUE addr)
+{
+     return ptrace_peek(self, PT_READ_U, addr);
+}
+#else
+UNSUPPORTED_API(ptrace_peekuser, VALUE self, VALUE addr)
+#endif
+
+#ifdef PT_WRITE_I
+static VALUE
+ptrace_poketext(VALUE self, VALUE addr, VALUE data)
+{
+    return ptrace_poke(self, PT_WRITE_I, addr, data);
+}
+#else
+UNSUPPORTED_API(ptrace_poketext, VALUE self, VALUE addr, VALUE data)
+#endif
+
+#ifdef PT_WRITE_D
+static VALUE
+ptrace_pokedata(VALUE self, VALUE addr, VALUE data)
+{
+    return ptrace_poke(self, PT_WRITE_D, addr, data);
+}
+#else
+UNSUPPORTED_API(ptrace_pokedata, VALUE self, VALUE addr, VALUE data)
+#endif
+
+#ifdef PT_WRITE_U
+static VALUE
+ptrace_pokeuser(VALUE self, VALUE addr, VALUE data)
+{
+    return ptrace_poke(self, PT_WRITE_U, addr, data);
+}
+#else
+UNSUPPORTED_API(ptrace_pokeuser, VALUE self, VALUE addr, VALUE data)
+#endif
+
+UNSUPPORTED_API(ptrace_getfpregs, VALUE self)
+
 
 static VALUE
 si_signo_symbol(int signo)
@@ -321,7 +303,9 @@ si_code_symbol(int signo, int code)
 #define SI_CODE(v) case v: return ID2SYM(rb_intern(#v));
 
     switch (code) {
+#ifdef SI_USER
 	SI_CODE(SI_USER);
+#endif
 #ifdef SI_KERNEL
 	SI_CODE(SI_KERNEL);
 #endif
@@ -474,126 +458,9 @@ ptrace_getsiginfo(VALUE self)
 }
 #endif
 
-#if defined(__APPLE__)
-static VALUE
-ptrace_setregs(VALUE self, VALUE data)
-{
-    x86_thread_state_t current_thread_state;
-    VALUE ret = Qnil;
-    int state_count = x86_THREAD_STATE_COUNT; /* only x86 supported */
-    kern_return_t thread_status = thread_get_status(pthread_self(),
-                                                    x86_THREAD_STATE,
-                                                    &current_thread_state,
-                                                    &state_count);
-    if ( thread_status != 0 )
-    {
-        rb_raise(rb_ePTraceError, "thread_get_state failed with error code: %d",
-                 thread_status);
-    }
-    
-#define SET(reg) {VALUE v = rb_struct_getmember(data, rb_intern(#reg)); \
-        current_thread_state.uts.ts64.__##reg = NUM2ULONG(v);}
-    SET(rax);
-    SET(rbx);
-    SET(rcx);
-    SET(rdi);
-    SET(rsi);
-    SET(rbp);
-    SET(rsp);
-    SET(r8);
-    SET(r9);
-    SET(r10);
-    SET(r11);
-    SET(r12);
-    SET(r13);
-    SET(r14);
-    SET(r15);
-    SET(rip);
-    SET(rflags);
-    SET(cs);
-    SET(fs);
-    SET(gs);
-    kern_return_t set_thread_status = thread_set_state(pthread_self(),
-                                                       x86_DEBUG_STATE,
-                                                       &current_thread_state,
-                                                       x86_DEBUG_STATE_COUNT);
-    if ( set_thread_status != 0 )
-    {
-        rb_raise(rb_ePTraceError, "thread_set_state failed with error code: %d",
-                 set_thread_status);
-    }
-    return Qnil;
-}
-#else
-#ifdef PT_SETREGS
-static VALUE
-ptrace_setregs(VALUE self, VALUE data)
-{
-    struct user_regs_struct urs;
-    void *data_ptr = (void *)&urs;
-    pid_t pid = get_pid(self);
-    long ret;
+UNSUPPORTED_API(ptrace_setfpregs, VALUE self, VALUE data)
 
-#define SET(reg) {VALUE v = rb_struct_getmember(data, rb_intern(#reg)); urs.reg = NUM2ULONG(v);}
-    SET(ebx);
-    SET(ecx);
-    SET(edx);
-    SET(esi);
-    SET(edi);
-    SET(ebp);
-    SET(eax);
-    SET(xds);
-    SET(xes);
-    SET(xfs);
-    SET(xgs);
-    SET(orig_eax);
-    SET(eip);
-    SET(xcs);
-    SET(eflags);
-    SET(esp);
-    SET(xss);
-#undef SET
-
-    CALL_PTRACE(ret, PT_SETREGS, pid, 0, data_ptr);
-    return Qnil;
-}
-#else  /* PT_SETREGS */
-static VALUE
-ptrace_setregs(VALUE self, VALUE data)
-{
-    UNSUPPORTED();
-    return Qnil;
-}
-#endif  /* PT_SETREGS */
-#endif  /* __APPLE__ */
-static VALUE
-ptrace_setfpregs(VALUE self, VALUE data)
-{
-    UNSUPPORTED();
-    return Qnil;
-}
-
-static VALUE
-ptrace_continue(VALUE self, ptrace_request request, VALUE data)
-{
-    pid_t pid = get_pid(self);
-    long ret;
-    long sig = 0;
-
-    if (FIXNUM_P(data)) {
-	sig = FIX2LONG(data);
-    }
-    else if (SYMBOL_P(data)) {
-	sig = signo_symbol_to_int(data);
-    }
-    else {
-	rb_raise(rb_eRuntimeError, "unknown data");
-    }
-
-    CALL_PTRACE(ret, request, pid, 0, (void *)sig);
-    return Qnil;
-}
-
+#ifdef PT_CONTINUE
 static VALUE
 ptrace_cont(int argc, VALUE *argv, VALUE self)
 {
@@ -603,6 +470,9 @@ ptrace_cont(int argc, VALUE *argv, VALUE self)
     }
     return ptrace_continue(self, PT_CONTINUE, data);
 }
+#else
+UNSUPPORTED_API(ptrace_cont, int argc, VALUE *argv, VALUE self))
+#endif
 
 #ifdef PT_SYSCALL
 static VALUE
@@ -615,14 +485,10 @@ ptrace_syscall(int argc, VALUE *argv, VALUE self)
     return ptrace_continue(self, PT_SYSCALL, data);
 }
 #else
-static VALUE
-ptrace_syscall(int argc, VALUE *argv, VALUE self)
-{
-    UNSUPPORTED();
-    return Qnil;
-}
+UNSUPPORTED_API(ptrace_syscall, int argc, VALUE *argv, VALUE self)
 #endif
 
+#ifdef PT_STEP
 static VALUE
 ptrace_singlestep(int argc, VALUE *argv, VALUE self)
 {
@@ -632,8 +498,11 @@ ptrace_singlestep(int argc, VALUE *argv, VALUE self)
     }
     return ptrace_continue(self, PT_STEP, data);
 }
+#else
+UNSUPPORTED_API(ptrace_continue, int argc, VALUE *argv, VALUE self)
+#endif
 
-#ifdef HAVE_PTRACE_SYSEMU
+#ifdef PTRACE_SYSEMU
 static VALUE
 ptrace_sysemu(int argc, VALUE *argv, VALUE self)
 {
@@ -643,9 +512,11 @@ ptrace_sysemu(int argc, VALUE *argv, VALUE self)
     }
     return ptrace_continue(self, PTRACE_SYSEMU, data);
 }
+#else
+UNSUPPORTED_API(ptrace_sysemu, int argc, VALUE *argv, VALUE self)
 #endif
 
-#ifdef HAVE_PTRACE_SYSEMU_SINGLESTEP
+#ifdef PTRACE_SYSEMU_SINGLESTEP
 static VALUE
 ptrace_sysemu_singlestep(int argc, VALUE *argv, VALUE self)
 {
@@ -655,8 +526,11 @@ ptrace_sysemu_singlestep(int argc, VALUE *argv, VALUE self)
     }
     return ptrace_continue(self, PTRACE_SYSEMU_SINGLESTEP, data);
 }
+#else
+UNSUPPORTED_API(ptrace_sysemu_singlestep, int argc, VALUE *argv, VALUE self)
 #endif
 
+#ifdef PT_KILL
 static VALUE
 ptrace_kill(VALUE self)
 {
@@ -665,7 +539,11 @@ ptrace_kill(VALUE self)
     CALL_PTRACE(ret, PT_KILL, pid, 0, 0);
     return Qnil;
 }
+#else
+UNSUPPORTED_API(ptrace_kill, VALUE self)
+#endif
 
+#ifdef WSTOPSIG
 static VALUE
 ptrace_wait(VALUE self)
 {
@@ -682,7 +560,11 @@ ptrace_wait(VALUE self)
     }
     return Qnil;
 }
+#else
+UNSUPPORTED_API(ptrace_wait, VALUE self)
+#endif
 
+#ifdef PT_DETACH
 static VALUE
 ptrace_detach(VALUE self)
 {
@@ -692,15 +574,11 @@ ptrace_detach(VALUE self)
     rb_ivar_set(self, id_ptrace_pid, Qnil);
     return Qnil;
 }
+#else
+UNSUPPORTED_API(ptrace_detach, VALUE self)
+#endif
 
-static VALUE
-ptrace_alloc(VALUE mod, pid_t pid)
-{
-    VALUE v = rb_obj_alloc(mod);
-    rb_ivar_set(v, id_ptrace_pid, LONG2NUM(pid));
-    return v;
-}
-
+#ifdef PT_ATTACH
 static VALUE
 ptrace_attach(VALUE mod, VALUE pidv)
 {
@@ -709,7 +587,11 @@ ptrace_attach(VALUE mod, VALUE pidv)
     CALL_PTRACE(ret, PT_ATTACH, pid, 0, 0);
     return ptrace_alloc(mod, pid);
 }
+#else
+UNSUPPORTED_API(ptrace_attach, VALUE mod, VALUE pidv)
+#endif
 
+#ifdef PT_TRACE_ME
 static VALUE
 ptrace_traceme(VALUE mod)
 {
@@ -722,6 +604,9 @@ ptrace_traceme(VALUE mod)
 
     return mod;
 }
+#else
+UNSUPPORTED_API(ptrace_traceme, VALUE mod)
+#endif
 
 static VALUE
 ptrace_exec(int argc, VALUE *argv, VALUE mod)
@@ -774,12 +659,8 @@ Init_ptrace(void)
     rb_define_method(klass, "cont", ptrace_cont, -1);
     rb_define_method(klass, "syscall", ptrace_syscall, -1);
     rb_define_method(klass, "singlestep", ptrace_singlestep, -1);
-#ifdef HAVE_PTRACE_SYSEMU
     rb_define_method(klass, "sysemu", ptrace_sysemu, -1);
-#endif
-#ifdef HAVE_PTRACE_SYSEMU_SINGLESTEP
     rb_define_method(klass, "sysemu_singlestep", ptrace_sysemu_singlestep, -1);
-#endif
     rb_define_method(klass, "kill", ptrace_kill, 0);
     rb_define_method(klass, "wait", ptrace_wait, 0);
     rb_define_method(klass, "detach", ptrace_detach, 0);
@@ -792,22 +673,7 @@ Init_ptrace(void)
 
     id_ptrace_pid = rb_intern("__ptrace_pid__");
     rb_ePTraceError = rb_define_class("PTraceError", rb_eStandardError);
-
-#if defined(__APPLE__)
-    rb_sPTraceRegStruct =
-        rb_struct_define("RegStruct",
-                         "rax", "rbx", "rcx", "rdi", "rsi", "rbp", "rsp", "r8",
-                         "r9", "r10", "r11", "r12", "r13", "r14", "r15", "rip",
-                         "rflags", "cs", "fs", "gs",
-                         0);
-#else  /* linux */
-    rb_sPTraceRegStruct =
-      rb_struct_define("RegStruct",
-		       "ebx", "ecx", "edx", "esi", "edi", "ebp", "eax", "xds",
-		       "xes", "xfs", "xgs", "orig_eax", "eip", "xcs",
-		       "eflags", "esp", "xss", 0);
-#endif
-    
+    rb_sPTraceRegStruct = REG_STRUCT_DEFINE();
     rb_sPTraceFPRegStruct =
       rb_struct_define("FPRegStruct",
 		       "cwd", "swd", "twd", "fop", "fip", "fcs", "foo",
