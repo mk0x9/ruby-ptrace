@@ -15,6 +15,8 @@
 #include <sys/ptrace.h>
 #include <mach/thread_status.h>
 
+#define DEBUG
+
 #define CALL_PTRACE(ret, request, pid, addr, data) do { \
 	ret = ptrace(request, pid, addr, data); \
 	if (ret == -1) { \
@@ -154,6 +156,7 @@ static pid_t
 get_pid(VALUE self)
 {
     VALUE pidv = rb_ivar_get(self, id_ptrace_pid);
+    
     pid_t pid = (pid_t)NUM2LONG(pidv);
 
     if (!RTEST(pidv) || pid == 0) {
@@ -214,12 +217,22 @@ ptrace_continue(VALUE self, ptrace_request request, VALUE data)
     pid_t pid = get_pid(self);
     long ret;
     long sig = 0;
-
+#ifdef DEBUG
+    fprintf(stderr, "%s: pid: %d\n", __func__, pid);
+#endif
+    
     if (FIXNUM_P(data)) {
 	sig = FIX2LONG(data);
+#ifdef DEBUG
+    fprintf(stderr, "%s: fixnum: %ld\n", __func__, sig);
+#endif
+
     }
     else if (SYMBOL_P(data)) {
 	sig = signo_symbol_to_int(data);
+#ifdef DEBUG
+    fprintf(stderr, "%s: symbol: %ld\n", __func__, sig);
+#endif
     }
     else {
 	rb_raise(rb_eRuntimeError, "unknown data");
@@ -728,7 +741,10 @@ ptrace_wait(VALUE self)
     pid_t pid = get_pid(self);
     int st;
     int ret = rb_waitpid(pid, &st, 0);
-
+#ifdef DEBUG
+    fprintf(stderr, "%s: pid: %d\n", __func__, pid);
+#endif
+    
     if (ret == -1) {
 	rb_sys_fail("waitpid(2)");
     }
@@ -790,7 +806,10 @@ static VALUE
 ptrace_exec(int argc, VALUE *argv, VALUE mod)
 {
     pid_t pid = fork();
-
+#ifdef DEBUG
+    fprintf(stderr, "%s: pid: %d\n", __func__, pid);
+#endif
+    
     if (pid == 0) {
 	/* child */
 	ptrace_traceme(Qnil);
