@@ -40,6 +40,115 @@ static ID id_ptrace_pid;
 #include "ptrace_linux.c"
 #endif
 
+static int
+signo_symbol_to_int(VALUE sym)
+{
+#define SI_SIGNO(v) if (ID2SYM(rb_intern(#v)) == sym) return v;
+#ifdef SIGHUP
+    SI_SIGNO(SIGHUP);
+#endif
+#ifdef SIGINT
+    SI_SIGNO(SIGINT);
+#endif
+#ifdef SIGQUIT
+    SI_SIGNO(SIGQUIT);
+#endif
+#ifdef SIGILL
+    SI_SIGNO(SIGILL);
+#endif
+#ifdef SIGTRAP
+    SI_SIGNO(SIGTRAP);
+#endif
+#ifdef SIGABRT
+    SI_SIGNO(SIGABRT);
+#endif
+#ifdef SIGIOT
+    SI_SIGNO(SIGIOT);
+#endif
+#ifdef SIGBUS
+    SI_SIGNO(SIGBUS);
+#endif
+#ifdef SIGFPE
+    SI_SIGNO(SIGFPE);
+#endif
+#ifdef SIGKILL
+    SI_SIGNO(SIGKILL);
+#endif
+#ifdef SIGUSR1
+    SI_SIGNO(SIGUSR1);
+#endif
+#ifdef SIGSEGV
+    SI_SIGNO(SIGSEGV);
+#endif
+#ifdef SIGUSR2
+    SI_SIGNO(SIGUSR2);
+#endif
+#ifdef SIGPIPE
+    SI_SIGNO(SIGPIPE);
+#endif
+#ifdef SIGALRM
+    SI_SIGNO(SIGALRM);
+#endif
+#ifdef SIGTERM
+    SI_SIGNO(SIGTERM);
+#endif
+#ifdef SIGSTKFLT
+    SI_SIGNO(SIGSTKFLT);
+#endif
+    SI_SIGNO(SIGCHLD);
+#ifdef SIGCLD
+    SI_SIGNO(SIGCLD);
+#endif
+#ifdef SIGCONT
+    SI_SIGNO(SIGCONT);
+#endif
+#ifdef SIGSTOP
+    SI_SIGNO(SIGSTOP);
+#endif
+#ifdef SIGTSTP
+    SI_SIGNO(SIGTSTP);
+#endif
+#ifdef SIGTTIN
+    SI_SIGNO(SIGTTIN);
+#endif
+#ifdef SIGTTOU
+    SI_SIGNO(SIGTTOU);
+#endif
+#ifdef SIGURG
+    SI_SIGNO(SIGURG);
+#endif
+#ifdef SIGXCPU
+    SI_SIGNO(SIGXCPU);
+#endif
+#ifdef SIGXFSZ
+    SI_SIGNO(SIGXFSZ);
+#endif
+#ifdef SIGVTALRM
+    SI_SIGNO(SIGVTALRM);
+#endif
+#ifdef SIGPROF
+    SI_SIGNO(SIGPROF);
+#endif
+#ifdef SIGWINCH
+    SI_SIGNO(SIGWINCH);
+#endif
+#ifdef SIGPOLL
+    SI_SIGNO(SIGPOLL);
+#endif
+    SI_SIGNO(SIGIO);
+#ifdef SIGPWR
+    SI_SIGNO(SIGPWR);
+#endif
+#ifdef SIGSYS
+    SI_SIGNO(SIGSYS);
+#endif
+#ifdef SIGUNUSED
+    SI_SIGNO(SIGUNUSED);
+#endif
+#undef SI_SIGNO
+
+    return -1; /* not found */
+}
 
 static pid_t
 get_pid(VALUE self)
@@ -97,62 +206,6 @@ ptrace_alloc(VALUE mod, pid_t pid)
     VALUE v = rb_obj_alloc(mod);
     rb_ivar_set(v, id_ptrace_pid, LONG2NUM(pid));
     return v;
-}
-
-static int
-signo_symbol_to_int(VALUE sym)
-{
-#define SI_SIGNO(v) if (ID2SYM(rb_intern(#v)) == sym) return v;
-    SI_SIGNO(SIGHUP);
-    SI_SIGNO(SIGINT);
-    SI_SIGNO(SIGQUIT);
-    SI_SIGNO(SIGILL);
-    SI_SIGNO(SIGTRAP);
-    SI_SIGNO(SIGABRT);
-    SI_SIGNO(SIGIOT);
-    SI_SIGNO(SIGBUS);
-    SI_SIGNO(SIGFPE);
-    SI_SIGNO(SIGKILL);
-    SI_SIGNO(SIGUSR1);
-    SI_SIGNO(SIGSEGV);
-    SI_SIGNO(SIGUSR2);
-    SI_SIGNO(SIGPIPE);
-    SI_SIGNO(SIGALRM);
-    SI_SIGNO(SIGTERM);
-#ifdef SIGSTKFLT
-    SI_SIGNO(SIGSTKFLT);
-#endif
-    SI_SIGNO(SIGCHLD);
-#ifdef SIGCLD
-    SI_SIGNO(SIGCLD);
-#endif
-    SI_SIGNO(SIGCONT);
-    SI_SIGNO(SIGSTOP);
-    SI_SIGNO(SIGTSTP);
-    SI_SIGNO(SIGTTIN);
-    SI_SIGNO(SIGTTOU);
-    SI_SIGNO(SIGURG);
-    SI_SIGNO(SIGXCPU);
-    SI_SIGNO(SIGXFSZ);
-    SI_SIGNO(SIGVTALRM);
-    SI_SIGNO(SIGPROF);
-    SI_SIGNO(SIGWINCH);
-#ifdef SIGPOLL
-    SI_SIGNO(SIGPOLL);
-#endif
-    SI_SIGNO(SIGIO);
-#ifdef SIGPWR
-    SI_SIGNO(SIGPWR);
-#endif
-#ifdef SIGSYS
-    SI_SIGNO(SIGSYS);
-#endif
-#ifdef SIGUNUSED
-    SI_SIGNO(SIGUNUSED);
-#endif
-#undef SI_SIGNO
-
-    return -1; /* not found */
 }
 
 static VALUE
@@ -245,51 +298,156 @@ si_signo_symbol(int signo)
 {
 #define SI_SIGNO(v) case v: return ID2SYM(rb_intern(#v));
 
-    switch (signo) {
-	SI_SIGNO(SIGHUP);
-	SI_SIGNO(SIGINT);
-	SI_SIGNO(SIGQUIT);
-	SI_SIGNO(SIGILL);
-	SI_SIGNO(SIGTRAP);
-	SI_SIGNO(SIGABRT);
-	/* SI_SIGNO(SIGIOT); dup */
-	SI_SIGNO(SIGBUS);
-	SI_SIGNO(SIGFPE);
-	SI_SIGNO(SIGKILL);
-	SI_SIGNO(SIGUSR1);
-	SI_SIGNO(SIGSEGV);
-	SI_SIGNO(SIGUSR2);
-	SI_SIGNO(SIGPIPE);
-	SI_SIGNO(SIGALRM);
-	SI_SIGNO(SIGTERM);
+    switch(signo) {
+#ifdef SIGHUP
+        SI_SIGNO(SIGHUP);
+#endif
+#ifdef SIGINT
+        SI_SIGNO(SIGINT);
+#endif
+#ifdef SIGQUIT
+        SI_SIGNO(SIGQUIT);
+#endif
+#ifdef SIGILL
+        SI_SIGNO(SIGILL);
+#endif
+#ifdef SIGTRAP
+        SI_SIGNO(SIGTRAP);
+#endif
+#ifdef SIGABRT
+        SI_SIGNO(SIGABRT);
+#endif
+#ifdef SIGIOT
+        //SI_SIGNO(SIGIOT);
+#endif
+#ifdef SIGBUS
+        SI_SIGNO(SIGBUS);
+#endif
+#ifdef SIGFPE
+        SI_SIGNO(SIGFPE);
+#endif
+#ifdef SIGKILL
+        SI_SIGNO(SIGKILL);
+#endif
+#ifdef SIGUSR1
+        SI_SIGNO(SIGUSR1);
+#endif
+#ifdef SIGSEGV
+        SI_SIGNO(SIGSEGV);
+#endif
+#ifdef SIGUSR2
+        SI_SIGNO(SIGUSR2);
+#endif
+#ifdef SIGPIPE
+        SI_SIGNO(SIGPIPE);
+#endif
+#ifdef SIGALRM
+        SI_SIGNO(SIGALRM);
+#endif
+#ifdef SIGTERM
+        SI_SIGNO(SIGTERM);
+#endif
 #ifdef SIGSTKFLT
-	SI_SIGNO(SIGSTKFLT);
+        SI_SIGNO(SIGSTKFLT);
 #endif
-	SI_SIGNO(SIGCHLD);
-	/* SI_SIGNO(SIGCLD); dup */
-	SI_SIGNO(SIGCONT);
-	SI_SIGNO(SIGSTOP);
-	SI_SIGNO(SIGTSTP);
-	SI_SIGNO(SIGTTIN);
-	SI_SIGNO(SIGTTOU);
-	SI_SIGNO(SIGURG);
-	SI_SIGNO(SIGXCPU);
-	SI_SIGNO(SIGXFSZ);
-	SI_SIGNO(SIGVTALRM);
-	SI_SIGNO(SIGPROF);
-	SI_SIGNO(SIGWINCH);
+        SI_SIGNO(SIGCHLD);
+#ifdef SIGCLD
+        SI_SIGNO(SIGCLD);
+#endif
+#ifdef SIGCONT
+        SI_SIGNO(SIGCONT);
+#endif
+#ifdef SIGSTOP
+        SI_SIGNO(SIGSTOP);
+#endif
+#ifdef SIGTSTP
+        SI_SIGNO(SIGTSTP);
+#endif
+#ifdef SIGTTIN
+        SI_SIGNO(SIGTTIN);
+#endif
+#ifdef SIGTTOU
+        SI_SIGNO(SIGTTOU);
+#endif
+#ifdef SIGURG
+        SI_SIGNO(SIGURG);
+#endif
+#ifdef SIGXCPU
+        SI_SIGNO(SIGXCPU);
+#endif
+#ifdef SIGXFSZ
+        SI_SIGNO(SIGXFSZ);
+#endif
+#ifdef SIGVTALRM
+        SI_SIGNO(SIGVTALRM);
+#endif
+#ifdef SIGPROF
+        SI_SIGNO(SIGPROF);
+#endif
+#ifdef SIGWINCH
+        SI_SIGNO(SIGWINCH);
+#endif
 #ifdef SIGPOLL
-	SI_SIGNO(SIGPOLL);
+        SI_SIGNO(SIGPOLL);
 #endif
-	/* SI_SIGNO(SIGIO); dup */
+        SI_SIGNO(SIGIO);
 #ifdef SIGPWR
-	SI_SIGNO(SIGPWR);
+        SI_SIGNO(SIGPWR);
 #endif
-#ifdef SYGSYS
-	SI_SIGNO(SIGSYS);
+#ifdef SIGSYS
+        SI_SIGNO(SIGSYS);
 #endif
-	/* SI_SIGNO(SIGUNUSED); dup */
+#ifdef SIGUNUSED
+        SI_SIGNO(SIGUNUSED);
+#endif
+
     }
+    
+/*     switch (signo) { */
+/* 	SI_SIGNO(SIGHUP); */
+/* 	SI_SIGNO(SIGINT); */
+/* 	SI_SIGNO(SIGQUIT); */
+/* 	SI_SIGNO(SIGILL); */
+/* 	SI_SIGNO(SIGTRAP); */
+/* 	SI_SIGNO(SIGABRT); */
+/* 	/\* SI_SIGNO(SIGIOT); dup *\/ */
+/* 	SI_SIGNO(SIGBUS); */
+/* 	SI_SIGNO(SIGFPE); */
+/* 	SI_SIGNO(SIGKILL); */
+/* 	SI_SIGNO(SIGUSR1); */
+/* 	SI_SIGNO(SIGSEGV); */
+/* 	SI_SIGNO(SIGUSR2); */
+/* 	SI_SIGNO(SIGPIPE); */
+/* 	SI_SIGNO(SIGALRM); */
+/* 	SI_SIGNO(SIGTERM); */
+/* #ifdef SIGSTKFLT */
+/* 	SI_SIGNO(SIGSTKFLT); */
+/* #endif */
+/* 	SI_SIGNO(SIGCHLD); */
+/* 	/\* SI_SIGNO(SIGCLD); dup *\/ */
+/* 	SI_SIGNO(SIGCONT); */
+/* 	SI_SIGNO(SIGSTOP); */
+/* 	SI_SIGNO(SIGTSTP); */
+/* 	SI_SIGNO(SIGTTIN); */
+/* 	SI_SIGNO(SIGTTOU); */
+/* 	SI_SIGNO(SIGURG); */
+/* 	SI_SIGNO(SIGXCPU); */
+/* 	SI_SIGNO(SIGXFSZ); */
+/* 	SI_SIGNO(SIGVTALRM); */
+/* 	SI_SIGNO(SIGPROF); */
+/* 	SI_SIGNO(SIGWINCH); */
+/* #ifdef SIGPOLL */
+/* 	SI_SIGNO(SIGPOLL); */
+/* #endif */
+/* 	/\* SI_SIGNO(SIGIO); dup *\/ */
+/* #ifdef SIGPWR */
+/* 	SI_SIGNO(SIGPWR); */
+/* #endif */
+/* #ifdef SYGSYS */
+/* 	SI_SIGNO(SIGSYS); */
+/* #endif */
+/* 	/\* SI_SIGNO(SIGUNUSED); dup *\/ */
+/*     } */
 
 #undef SI_SIGNO
 
@@ -309,10 +467,18 @@ si_code_symbol(int signo, int code)
 #ifdef SI_KERNEL
 	SI_CODE(SI_KERNEL);
 #endif
+#ifdef SI_QUEUE
 	SI_CODE(SI_QUEUE);
+#endif
+#ifdef SI_TIMER
 	SI_CODE(SI_TIMER);
+#endif
+#ifdef SI_MESGQ
 	SI_CODE(SI_MESGQ);
+#endif
+#ifdef SI_ASYNCIO
 	SI_CODE(SI_ASYNCIO);
+#endif
 #ifdef SI_SIGIO
 	SI_CODE(SI_SIGIO);
 #endif
@@ -322,6 +488,7 @@ si_code_symbol(int signo, int code)
     }
 
     switch (signo) {
+#ifdef SIGILL
       case SIGILL:
 	switch (code) {
 	    SI_CODE(ILL_ILLOPC);
@@ -334,6 +501,8 @@ si_code_symbol(int signo, int code)
 	    SI_CODE(ILL_BADSTK);
 	}
 	break;
+#endif
+#ifdef SIGFPE
       case SIGFPE:
 	switch (code) {
 	    SI_CODE(FPE_INTDIV);
@@ -346,12 +515,16 @@ si_code_symbol(int signo, int code)
 	    SI_CODE(FPE_FLTSUB);
 	}
 	break;
+#endif
+#ifdef SIGSEGV
       case SIGSEGV:
 	switch (code) {
 	    SI_CODE(SEGV_MAPERR);
 	    SI_CODE(SEGV_ACCERR);
 	}
 	break;
+#endif
+#ifdef SIGBUS
       case SIGBUS:
 	switch (code) {
 	    SI_CODE(BUS_ADRALN);
@@ -359,12 +532,16 @@ si_code_symbol(int signo, int code)
 	    SI_CODE(BUS_OBJERR);
 	}
 	break;
+#endif
+#ifdef SIGTRAP
       case SIGTRAP:
 	switch (code) {
 	    SI_CODE(TRAP_BRKPT);
 	    SI_CODE(TRAP_TRACE);
 	}
 	break;
+#endif
+#ifdef SIGCHLD
       case SIGCHLD:
 	switch (code) {
 	    SI_CODE(CLD_EXITED);
@@ -375,6 +552,7 @@ si_code_symbol(int signo, int code)
 	    SI_CODE(CLD_CONTINUED);
 	}
 	break;
+#endif
 #ifdef SIGPOLL
       case SIGPOLL:
 	switch (code) {
