@@ -1,3 +1,4 @@
+#include <mach/thread_status.h>
 #include <mach/mach.h>
 
 static VALUE
@@ -134,3 +135,32 @@ ptrace_alloc(VALUE mod, pid_t pid)
     rb_ivar_set(v, id_ptrace_exception_port, LONG2NUM(exception_port));
     return v;
 }
+
+static VALUE
+ptrace_wait(VALUE self)
+{
+    pid_t pid = get_pid(self);
+    int st;
+    VALUE taskv = rb_ivar_get(self, id_ptrace_task);
+    mach_port_t task = (mach_port_t)NUM2LONG(taskv);
+    fprintf(stderr, "task_suspending\n");
+    task_suspend(task);
+    fprintf(stderr, "task_suspended\n");
+    fprintf(stderr, "waitpiding\n");
+    
+    int ret = rb_waitpid(pid, &st, 0);
+    fprintf(stderr, "waitpided\n");
+#ifdef DEBUG
+    fprintf(stderr, "%s: pid: %d\n", __func__, pid);
+#endif
+    
+    if (ret == -1) {
+	rb_sys_fail("waitpid(2)");
+    }
+
+    if (WIFSTOPPED(st)) {
+	return si_signo_symbol(WSTOPSIG(st));
+    }
+    return Qnil;
+}
+

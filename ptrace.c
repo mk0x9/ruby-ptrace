@@ -13,7 +13,7 @@
 #include <sys/user.h>
 #include <sys/wait.h>
 #include <sys/ptrace.h>
-#include <mach/thread_status.h>
+
 
 #define DEBUG
 
@@ -43,10 +43,11 @@ typedef int ptrace_request;
 #else
 typedef enum __ptrace_request ptrace_request;
 #endif
-
+/* prototype definition */
 static VALUE ptrace_continue(VALUE self, ptrace_request request, VALUE data);
 static pid_t get_pid(VALUE self);
-
+static void ptrace_error(ptrace_request request, int err);
+    
 #if defined(__APPLE__)
 #include "ptrace_darwin.c"
 #else
@@ -370,7 +371,7 @@ si_signo_symbol(int signo)
 #endif
         SI_SIGNO(SIGCHLD);
 #ifdef SIGCLD
-        SI_SIGNO(SIGCLD);
+        /* SI_SIGNO(SIGCLD); */
 #endif
 #ifdef SIGCONT
         SI_SIGNO(SIGCONT);
@@ -408,7 +409,7 @@ si_signo_symbol(int signo)
 #ifdef SIGPOLL
         SI_SIGNO(SIGPOLL);
 #endif
-        SI_SIGNO(SIGIO);
+        /* SI_SIGNO(SIGIO); */
 #ifdef SIGPWR
         SI_SIGNO(SIGPWR);
 #endif
@@ -416,7 +417,7 @@ si_signo_symbol(int signo)
         SI_SIGNO(SIGSYS);
 #endif
 #ifdef SIGUNUSED
-        SI_SIGNO(SIGUNUSED);
+        /* SI_SIGNO(SIGUNUSED); */
 #endif
 
     }
@@ -731,12 +732,6 @@ ptrace_wait(VALUE self)
 {
     pid_t pid = get_pid(self);
     int st;
-    VALUE taskv = rb_ivar_get(self, id_ptrace_task);
-    mach_port_t task = (mach_port_t)NUM2LONG(taskv);
-    fprintf(stderr, "task_suspending\n");
-    task_suspend(task);
-    fprintf(stderr, "task_suspended\n");
-    fprintf(stderr, "waitpiding\n");
     
     int ret = rb_waitpid(pid, &st, 0);
     fprintf(stderr, "waitpided\n");
