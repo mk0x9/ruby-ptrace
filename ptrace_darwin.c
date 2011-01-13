@@ -148,7 +148,7 @@ ptrace_wait(VALUE self)
     fprintf(stderr, "task_suspended\n");
     fprintf(stderr, "waitpiding\n");
     
-    int ret = rb_waitpid(pid, &st, 0);
+    int ret = rb_waitpid(pid, &st, WNOHANG);
     fprintf(stderr, "waitpided\n");
 #ifdef DEBUG
     fprintf(stderr, "%s: pid: %d\n", __func__, pid);
