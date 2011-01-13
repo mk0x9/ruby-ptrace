@@ -54,7 +54,9 @@ def trace_syscall ptrace
   ptrace.wait
   ptrace.syscall
   $direc = true
+  
   while e = ptrace.wait
+    p e
     case e
     when :SIGTRAP
       exec_trap ptrace

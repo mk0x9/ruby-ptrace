@@ -1,4 +1,4 @@
-typedef int ptrace_request;
+#include <mach/mach.h>
 
 static VALUE
 ptrace_getregs(VALUE self)
@@ -99,3 +99,38 @@ ptrace_setregs(VALUE self, VALUE data)
                      /*"rip", "rflags", "cs", "fs", "gs",*/             \
                      0)
 
+
+
+static VALUE
+ptrace_syscall(int argc, VALUE *argv, VALUE self)
+{
+    VALUE data = INT2FIX(0);
+    if (argc == 1) {
+	data = argv[0];
+    }
+    VALUE taskv = rb_ivar_get(self, id_ptrace_task);
+    mach_port_t task = (mach_port_t)NUM2LONG(taskv);
+    fprintf(stderr, "task_resuming\n");
+    task_resume(task);
+    fprintf(stderr, "task_resumed\n");
+    return Qnil;
+}
+
+static VALUE
+ptrace_alloc(VALUE mod, pid_t pid)
+{
+    /* setup PID */
+    VALUE v = rb_obj_alloc(mod);
+    rb_ivar_set(v, id_ptrace_pid, LONG2NUM(pid));
+    /* setup task */
+    mach_port_t task, myport, exception_port;
+    myport = mach_task_self();
+    task_for_pid(myport, pid, &task);
+    rb_ivar_set(v, id_ptrace_task, LONG2NUM(task));
+    /* setup exception port */
+    mach_port_allocate(myport, MACH_PORT_RIGHT_RECEIVE, &exception_port);
+    mach_port_insert_right(myport, exception_port, exception_port,
+                           MACH_MSG_TYPE_MAKE_SEND);
+    rb_ivar_set(v, id_ptrace_exception_port, LONG2NUM(exception_port));
+    return v;
+}

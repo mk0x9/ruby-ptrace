@@ -1,7 +1,8 @@
 require 'ptrace'
 
 pt = PTrace.exec(ARGV.shift)
-pt.wait
+e = pt.wait
+p e
 pt.cont
 
 while e = pt.wait
@@ -17,3 +18,4 @@ while e = pt.wait
     pt.syscall e
   end
 end
+

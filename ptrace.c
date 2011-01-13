@@ -35,12 +35,25 @@ static VALUE rb_ePTraceError;
 static VALUE rb_sPTraceRegStruct;
 static VALUE rb_sPTraceFPRegStruct;
 static ID id_ptrace_pid;
+static ID id_ptrace_task;
+static ID id_ptrace_exception_port;
+
+#if defined(__APPLE__)
+typedef int ptrace_request;
+#else
+typedef enum __ptrace_request ptrace_request;
+#endif
+
+static VALUE ptrace_continue(VALUE self, ptrace_request request, VALUE data);
+static pid_t get_pid(VALUE self);
 
 #if defined(__APPLE__)
 #include "ptrace_darwin.c"
 #else
 #include "ptrace_linux.c"
 #endif
+
+
 
 static int
 signo_symbol_to_int(VALUE sym)
@@ -201,14 +214,6 @@ ptrace_poke(VALUE self, ptrace_request request, VALUE addr, VALUE data)
     CALL_PTRACE(ret, request, pid, addr_ptr, long_data);
 
     return Qnil;
-}
-
-static VALUE
-ptrace_alloc(VALUE mod, pid_t pid)
-{
-    VALUE v = rb_obj_alloc(mod);
-    rb_ivar_set(v, id_ptrace_pid, LONG2NUM(pid));
-    return v;
 }
 
 static VALUE
@@ -662,21 +667,7 @@ ptrace_cont(int argc, VALUE *argv, VALUE self)
     return ptrace_continue(self, PT_CONTINUE, data);
 }
 #else
-UNSUPPORTED_API(ptrace_cont, int argc, VALUE *argv, VALUE self))
-#endif
-
-#ifdef PT_SYSCALL
-static VALUE
-ptrace_syscall(int argc, VALUE *argv, VALUE self)
-{
-    VALUE data = INT2FIX(0);
-    if (argc == 1) {
-	data = argv[0];
-    }
-    return ptrace_continue(self, PT_SYSCALL, data);
-}
-#else
-UNSUPPORTED_API(ptrace_syscall, int argc, VALUE *argv, VALUE self)
+UNSUPPORTED_API(ptrace_cont, int argc, VALUE *argv, VALUE self)
 #endif
 
 #ifdef PT_STEP
@@ -740,7 +731,15 @@ ptrace_wait(VALUE self)
 {
     pid_t pid = get_pid(self);
     int st;
+    VALUE taskv = rb_ivar_get(self, id_ptrace_task);
+    mach_port_t task = (mach_port_t)NUM2LONG(taskv);
+    fprintf(stderr, "task_suspending\n");
+    task_suspend(task);
+    fprintf(stderr, "task_suspended\n");
+    fprintf(stderr, "waitpiding\n");
+    
     int ret = rb_waitpid(pid, &st, 0);
+    fprintf(stderr, "waitpided\n");
 #ifdef DEBUG
     fprintf(stderr, "%s: pid: %d\n", __func__, pid);
 #endif
@@ -869,6 +868,9 @@ Init_ptrace(void)
     rb_define_singleton_method(klass, "traceme", ptrace_traceme, 0);
 
     id_ptrace_pid = rb_intern("__ptrace_pid__");
+    id_ptrace_task = rb_intern("__ptrace_task__");
+    id_ptrace_exception_port = rb_intern("__ptrace_exception_port__");
+    
     rb_ePTraceError = rb_define_class("PTraceError", rb_eStandardError);
     rb_sPTraceRegStruct = REG_STRUCT_DEFINE();
     rb_sPTraceFPRegStruct =
