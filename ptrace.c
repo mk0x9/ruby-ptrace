@@ -47,7 +47,8 @@ typedef enum __ptrace_request ptrace_request;
 static VALUE ptrace_continue(VALUE self, ptrace_request request, VALUE data);
 static pid_t get_pid(VALUE self);
 static void ptrace_error(ptrace_request request, int err);
-    
+static VALUE si_signo_symbol(int signo);
+
 #if defined(__APPLE__)
 #include "ptrace_darwin.c"
 #else
@@ -422,52 +423,6 @@ si_signo_symbol(int signo)
 
     }
     
-/*     switch (signo) { */
-/* 	SI_SIGNO(SIGHUP); */
-/* 	SI_SIGNO(SIGINT); */
-/* 	SI_SIGNO(SIGQUIT); */
-/* 	SI_SIGNO(SIGILL); */
-/* 	SI_SIGNO(SIGTRAP); */
-/* 	SI_SIGNO(SIGABRT); */
-/* 	/\* SI_SIGNO(SIGIOT); dup *\/ */
-/* 	SI_SIGNO(SIGBUS); */
-/* 	SI_SIGNO(SIGFPE); */
-/* 	SI_SIGNO(SIGKILL); */
-/* 	SI_SIGNO(SIGUSR1); */
-/* 	SI_SIGNO(SIGSEGV); */
-/* 	SI_SIGNO(SIGUSR2); */
-/* 	SI_SIGNO(SIGPIPE); */
-/* 	SI_SIGNO(SIGALRM); */
-/* 	SI_SIGNO(SIGTERM); */
-/* #ifdef SIGSTKFLT */
-/* 	SI_SIGNO(SIGSTKFLT); */
-/* #endif */
-/* 	SI_SIGNO(SIGCHLD); */
-/* 	/\* SI_SIGNO(SIGCLD); dup *\/ */
-/* 	SI_SIGNO(SIGCONT); */
-/* 	SI_SIGNO(SIGSTOP); */
-/* 	SI_SIGNO(SIGTSTP); */
-/* 	SI_SIGNO(SIGTTIN); */
-/* 	SI_SIGNO(SIGTTOU); */
-/* 	SI_SIGNO(SIGURG); */
-/* 	SI_SIGNO(SIGXCPU); */
-/* 	SI_SIGNO(SIGXFSZ); */
-/* 	SI_SIGNO(SIGVTALRM); */
-/* 	SI_SIGNO(SIGPROF); */
-/* 	SI_SIGNO(SIGWINCH); */
-/* #ifdef SIGPOLL */
-/* 	SI_SIGNO(SIGPOLL); */
-/* #endif */
-/* 	/\* SI_SIGNO(SIGIO); dup *\/ */
-/* #ifdef SIGPWR */
-/* 	SI_SIGNO(SIGPWR); */
-/* #endif */
-/* #ifdef SYGSYS */
-/* 	SI_SIGNO(SIGSYS); */
-/* #endif */
-/* 	/\* SI_SIGNO(SIGUNUSED); dup *\/ */
-/*     } */
-
 #undef SI_SIGNO
 
     return INT2FIX(signo); /* realtime signal? */
@@ -724,32 +679,6 @@ ptrace_kill(VALUE self)
 }
 #else
 UNSUPPORTED_API(ptrace_kill, VALUE self)
-#endif
-
-#ifdef WSTOPSIG
-static VALUE
-ptrace_wait(VALUE self)
-{
-    pid_t pid = get_pid(self);
-    int st;
-    
-    int ret = rb_waitpid(pid, &st, 0);
-    fprintf(stderr, "waitpided\n");
-#ifdef DEBUG
-    fprintf(stderr, "%s: pid: %d\n", __func__, pid);
-#endif
-    
-    if (ret == -1) {
-	rb_sys_fail("waitpid(2)");
-    }
-
-    if (WIFSTOPPED(st)) {
-	return si_signo_symbol(WSTOPSIG(st));
-    }
-    return Qnil;
-}
-#else
-UNSUPPORTED_API(ptrace_wait, VALUE self)
 #endif
 
 #ifdef PT_DETACH
