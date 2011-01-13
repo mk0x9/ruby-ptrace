@@ -146,23 +146,17 @@ UNSUPPORTED_API(ptrace_setregs, VALUE self, VALUE data)
     rb_struct_define("RegStruct",                                       \
                      "ebx", "ecx", "edx", "esi", "edi", "ebp", "eax", "xds", \
                      "xes", "xfs", "xgs", "orig_eax", "eip", "xcs",     \
-                     "eflags", "esp", "xss", 0)
+                     "eflags", "esp", "xss", NULL)
 #endif
 #ifdef __x86_64__
+/*
 #define REG_STRUCT_DEFINE()                                             \
     rb_struct_define("RegStruct",                                       \
-                     "rax", "rbx",                                      \
-                     "rcx", "rdi",                                      \
-                     "rsi", "rbp",                                      \
-                     "rsp", "r8",                                       \
-                     "r9", "r10",                                       \
-                     "r11", "r12",                                      \
-                     "r13", "r14",                                      \
-                     "r15",                                             \
-                     /*"rip",                                           \
-                       "cs",                                            \
-                       "fs", "gs", */                                   \
-                     0)
+                     "rax", "rbx", "rcx", "rdi", "rsi", "rbp",          \
+                     "rsp", "r8", "r9", "r10", "r11", "r12",            \
+                     "r13", "r14", "r15",                               \
+                     NULL)
+*/
 #endif
 
 #ifdef PT_SYSCALL

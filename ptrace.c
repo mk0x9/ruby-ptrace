@@ -867,7 +867,13 @@ Init_ptrace(void)
     id_ptrace_exception_port = rb_intern("__ptrace_exception_port__");
     
     rb_ePTraceError = rb_define_class("PTraceError", rb_eStandardError);
-    rb_sPTraceRegStruct = REG_STRUCT_DEFINE();
+    rb_sPTraceRegStruct = rb_struct_define("RegStruct",
+                                           "rax", "rbx", "rcx", "rdi", "rsi",
+                                           "rbp", "rsp", "r8", "r9", "r10",
+                                           "r11", "r12", "r13",
+/*"r14", "r15",
+                                           */
+                                           NULL);
     rb_sPTraceFPRegStruct =
       rb_struct_define("FPRegStruct",
 		       "cwd", "swd", "twd", "fop", "fip", "fcs", "foo",
