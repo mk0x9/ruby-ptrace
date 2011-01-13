@@ -34,8 +34,8 @@ ptrace_wait(VALUE self)
 {
     pid_t pid = get_pid(self);
     int st;
-    int ret = rb_waitpid(pid, &st, 0);
-    fprintf(stderr, "waitpided\n");
+    int ret = rb_waitpid(pid, &st, 0x40000002);
+    fprintf(stderr, "waitpided: %d\n", st);
 #ifdef DEBUG
     fprintf(stderr, "%s: pid: %d\n", __func__, pid);
 #endif
