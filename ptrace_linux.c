@@ -27,3 +27,29 @@ ptrace_alloc(VALUE mod, pid_t pid)
     rb_ivar_set(v, id_ptrace_pid, LONG2NUM(pid));
     return v;
 }
+
+#ifdef WSTOPSIG
+static VALUE
+ptrace_wait(VALUE self)
+{
+    pid_t pid = get_pid(self);
+    int st;
+    int ret = rb_waitpid(pid, &st, 0);
+    fprintf(stderr, "waitpided\n");
+#ifdef DEBUG
+    fprintf(stderr, "%s: pid: %d\n", __func__, pid);
+#endif
+    
+    if (ret == -1) {
+	rb_sys_fail("waitpid(2)");
+    }
+
+    if (WIFSTOPPED(st)) {
+	return si_signo_symbol(WSTOPSIG(st));
+    }
+    return Qnil;
+}
+
+#else
+UNSUPPORTED_API(ptracw_wait, VALUE self)
+#endif
