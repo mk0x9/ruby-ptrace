@@ -5,6 +5,12 @@ Author: Koichi Sasada
 Create Date: Wed Sep 17 04:19:52 2008
 
 NOTES ON THIS FORK:
-- reorganised into a gem; I haven't pushed it to rubygems
+- reorganised into a gem (but not pushed to rubygems yet)
 - tested on Linux (Debian Squeeze 2.6.32-5-686 #1 SMP Mon Jun 13 04:13:06 UTC
   2011 i686 GNU/Linux)
+- to build and test, run
+    rake ext
+  to build the extension, and then run
+    rake test
+- to make a gem file to install, type
+  rake build
