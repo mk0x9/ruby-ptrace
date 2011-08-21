@@ -8,7 +8,7 @@ Gem::Specification.new do |s|
   s.name              = 'ptrace'
   s.version           = PTrace::VERSION
   s.platform          = Gem::Platform::RUBY
-  s.authors           = ['Koichi Sasada, garaemon']
+  s.authors           = ['Koichi Sasada', 'garaemon']
   s.email             = ['jdleesmiller@gmail.com']
   s.homepage          = 'https://github.com/jdleesmiller/ruby-ptrace'
   s.summary           = %q{Wrapper for ptrace.}
