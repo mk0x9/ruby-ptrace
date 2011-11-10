@@ -16,7 +16,7 @@ Gem::Specification.new do |s|
 
   s.rubyforge_project = ''
 
-  s.files       = Dir.glob('{lib}/**/*.rb')
+  s.files       = Dir.glob('{lib}/**/*.rb').concat Dir.glob('ext/{*.rb,*.c}')
   s.test_files  = Dir.glob('test/*_test.rb')
 
   s.extensions = "ext/extconf.rb"
